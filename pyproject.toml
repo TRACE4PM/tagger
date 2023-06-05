@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "tagging"
+version = "0.1.0"
+description = "Apply some specifis tags for a given list of logs"
+authors = [
+    "nalcime <nannito.alcime@etudiant.univ-lr.fr>",
+    "Axel Gohier <axel.gohier@etudiant.univ-lr.fr>"
+    ]
+license = "private"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
