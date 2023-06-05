@@ -31,16 +31,6 @@ def do_tagging(tags_config, requests):
                     break
             if tag_name:
                 requests[position]['request_tag'] = tag_name
-                if tag_name == "CollectionNavigation":
-                    print(requests[position]['request_id'])
-                    print(requests[position]['request_url'])
-                    if first :
-                        print(f'first : {first}')
-                    if second :
-                        print(f'second : {second}')
-                    if alternate :
-                        print(f'alternate : {alternate}')
-                    print('\n')
                 break
         if not tag_name:
             requests[position]['request_tag'] = "Outliers"
