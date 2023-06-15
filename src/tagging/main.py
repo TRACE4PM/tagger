@@ -1,5 +1,4 @@
 
-
 def do_tagging(tags_config, requests):
     for position, request in enumerate(requests):
         request = request['request_url']
