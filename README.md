@@ -1,92 +1,132 @@
-# tagging
+## Projet de Visualisation des Parcours Utilisateurs - Service Tagging
+
+### Description du Projet
+
+Ce projet vise à développer une application de visualisation des parcours utilisateurs basée sur la fouille de processus. L'objectif est de mieux comprendre les comportements des utilisateurs qui accèdent aux services et aux documents proposés par le portail Gallica de la Bibliothèque Nationale de France (BNF). Pour y arriver, il faut exploiter de grands volumes de logs provenant du portail.
+Pour une compréhension et une analyse optimales de ces logs, il convient d'attribuer une action à chaque requête présente dans ces derniers. Ce service, nommé tagging, a été développé dans l'optique de faciliter l'étiquettage des logs. L'API fera appel à ses différentes fonctions à chaque fois qu'un utilisateur souhaite télécharger un fichier de configuration du tagging dans la base de données, générer le tagging pour un ensemble de logs présents dans une collection spécifique de la base de données et afficher l'ensemble des règles de tagging préalablement sauvegardées dans la base de données par le téléchargement d'un fichier de configuration.
+
+### Architecture
+
+Dans le cadre de ce projet, le service tagging sera intégré dans une architecture basée sur les microservices. Dans ce cas, ce service communiquera uniquement avec l'API développée à cet effet. L'API recevra les requêtes provenant des clients, utilisera les fonctions du service pour satisfaire cette requête et retourner pour finir la réponse adéquate au client.
+
+### Technologies Utilisées
+
+Pour la mise en place du service tagging, plusieurs technologies présentées ci-dessous ont été utilisées. Il s'agit de :
+
+    Langage(s) de Programmation : Python
+    Base de Données : MongoDB Normalement le service ne communique pas directement avec la base de données du projet. Pour le faire, il passe par l'API.
+    Autre(s) outil(s) : Poetry
+
+### Installation et Configuration
+
+Pour utiliser le service tagging dans le projet ou n'importe quel autre, il faut juste l'installer comme un module (python) normale. Dans notre cas, avec poetry, il suffit d'exécuter les différentes étapes suivante :
+    - Inclure le lien du dépôt du service dans le fichier de configuration (pyproject.toml) du projet dans la section [tool.poetry.dependencies] de la manière suivante (tagging = {git = "git@gitlab.univ-lr.fr:trace_clustering/services/tagging.git"})
+    - Installer le service comme un module avec la commande suivante (poetry add tagging)
+    - Importer les fonctions du service comme on importe n'importe quel module python (from tagging.main import generate)
 
 
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
+### Fonctionnement du tagging
+Pour permettre l'utilisation du tagging, un ensemble de règles doit être préalablement défini dans un fichier au format json et chargé au niveau de la base de données dans une collection dédiée créée préalablement. L'API fera ensuite appel automatiquement à ces règles et les transmettre au service tagging avec les logs à tagger.
+Le tagging consiste surtout à associer une action à chaque requête présente dans les logs. Pour y arriver, le service va chercher des mots-clés dans chaque requête et suivant leur position, il attribuera une action à la requête.
+Voici une idéé de la structure du fichier de configuration :
+```json
+[
+    {
+        "tag_name": "AdvancedSearch",
+        "conditions": [
+        {
+            "number": 2,
+            "first_keyword": "advancedSearch",
+            "second_keyword": "/accueil/",
+            "alternate_tag": "HomePage"
+        },
+        {
+            "number": 2,
+            "first_keyword": "advancedSearch",
+            "second_keyword": "search",
+            "alternate_tag": "AdvancedSearch"
+        },
+        {
+            "number": 1,
+            "first_keyword": "advanced"
+        }
+    ]
+  }
+]
 ```
-cd existing_repo
-git remote add origin https://gitlab.univ-lr.fr/trace_clustering/services/tagging.git
-git branch -M main
-git push -uf origin main
+    - tag_name : représente l'action à attribuer à une requête si l'une des conditions est vérifiée
+    - conditions : permet de définir une liste de conditions relatives à l'action à attribuer
+    - number : représente le nombre de mots-clés à rechercher dans chaque requête
+    - first_keyword : le premier mot-clé à rechercher (quand le champ number est égal à 1, il sera l'unique mot-clé à rechercher)
+    - second_keyword : le second mot-clé à rechercher (quand le champ number est égal à 1, il ne sera pas inclus dans les conditions ni dans la recherche)
+    - alternate_tag : Si le `first_keyword` se trouve en première position par rapport au `second_keyword` dans une requête, l'action définie dans le champ `tag_name` sera attribuée à la requête. Dans le cas contraire, c'est à dire le `second_keyword` se trouve en première position par rapport au `first_keyword`, c'est l'action définie dans le champ `alternate_tag` qui sera attribuée à la requête (quand le champ number est égal à 1, il n'y aura pas de champ `alternate_tag` puisqu'il y aura uniquement le champ `first_keyword`).
+
+On peut ajouter autant d'action et de conditions que l'on souhaite, mais pour un bon fonctionnement du service et pour éviter des `bugs` logiques, ces bonnes pratiques sont à suivre :
+    - respecter la structure du fichier json
+    - bien définir les règles dans un ordre logique (en prenant surtout le soin de placer les conditions avec `number: 2` avant celles avec `number: 1`)
+
+Pour ajouter d'autres règles liéées à d'autres actions, il suffit de les séparer par une virgule comme illustré ci-dessous :
+```json
+[
+    {
+        "tag_name": "AccessGallicaBlog",
+        "conditions": [
+        {
+            "number": 2,
+            "first_keyword": "blog",
+            "second_keyword": "/accueil/",
+            "alternate_tag": "HomePage"
+        },
+        {
+            "number": 2,
+            "first_keyword": "blog",
+            "second_keyword": "und",
+            "alternate_tag": "CollectionNavigation"
+        },
+        {
+            "number": 1,
+            "first_keyword": "blog"
+        }
+        ]
+    },
+    {
+        "tag_name": "AdvancedSearch",
+        "conditions": [
+        {
+            "number": 2,
+            "first_keyword": "advancedSearch",
+            "second_keyword": "/accueil/",
+            "alternate_tag": "HomePage"
+        },
+        {
+            "number": 2,
+            "first_keyword": "advancedSearch",
+            "second_keyword": "search",
+            "alternate_tag": "AdvancedSearch"
+        },
+        {
+            "number": 1,
+            "first_keyword": "advanced"
+        }
+    ]
+  }
+]
 ```
+    
 
-## Integrate with your tools
+### Contributions et Améliorations
 
-- [ ] [Set up project integrations](https://gitlab.univ-lr.fr/trace_clustering/services/tagging/-/settings/integrations)
+Les contributions à ce projet sont les bienvenues. Si vous souhaitez apporter des améliorations, veuillez suivre les étapes suivantes :
 
-## Collaborate with your team
+    Forkez le dépôt et clonez votre propre copie.
+    Créez une branche pour vos modifications : git checkout -b feature/ma-nouvelle-fonctionnalite
+    Effectuez les modifications nécessaires et testez-les de manière approfondie.
+    Soumettez une pull request en expliquant en détail les modifications apportées et leur impact.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+### Auteur(s)
 
-## Test and Deploy
+    - Nannito Junior ALCIME
 
-Use the built-in continuous integration in GitLab.
+### Licence
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Ce projet est sous licence L3I.
